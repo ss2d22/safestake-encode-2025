@@ -1,0 +1,36 @@
+{
+  "name": "safestake-verifier-backend",
+  "version": "1.0.0",
+  "description": "Lightweight backend for SafeStake age verification using Concordium's hosted verifier",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "echo \"Tests coming soon\""
+  },
+  "keywords": [
+    "concordium",
+    "age-verification",
+    "gambling",
+    "responsible-gaming"
+  ],
+  "author": "Sriram Sundar",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.2",
+    "@noble/ed25519": "^2.0.0",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/morgan": "^1.9.9",
+    "@types/node": "^20.10.5",
+    "typescript": "^5.3.3",
+    "ts-node-dev": "^2.0.0"
+  }
+}
