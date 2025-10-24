@@ -396,4 +396,7 @@ fn record_transaction(
     Ok(())
 }
 
-
+// Helper function to hash an account address to create a deterministic identity hash.
+fn hash_account(account: AccountAddress) -> IdentityHash {
+    *account.as_ref()
+}
