@@ -302,3 +302,98 @@ fn self_exclude(
     
     Ok(())
 }
+
+// Record a gambling transaction and update user's spending.
+#[receive(
+    contract = "safestake_registry",
+    name = "record_transaction",
+    parameter = "RecordTransactionParams",
+    error = "ContractError",
+    mutable
+)]
+fn record_transaction(
+    ctx: &ReceiveContext,
+    host: &mut Host<State>,
+) -> Result<(), ContractError> {
+    let params: RecordTransactionParams = ctx.parameter_cursor().get()?;
+    let user_hash = hash_account(params.user_account);
+    let current_time = ctx.metadata().slot_time();
+    
+    // Check if user is excluded BEFORE getting mutable borrow
+    let is_excluded = host.state().excluded_users.contains(&user_hash);
+    
+    // Get mutable reference to user
+    let mut user = host
+        .state_mut()
+        .registry
+        .get_mut(&user_hash)
+        .ok_or(ContractError::UserNotRegistered)?;
+    
+    // Check age verification
+    if !user.age_verified {
+        return Err(ContractError::AgeNotVerified);
+    }
+    
+    // Check if daily reset is needed
+    let time_since_daily = current_time.duration_since(user.last_reset_day);
+    if let Some(duration) = time_since_daily {
+        if duration.days() >= 1 {
+            user.daily_spent = Amount::zero();
+            user.last_reset_day = current_time;
+        }
+    }
+    
+    // Check if monthly reset is needed
+    let time_since_monthly = current_time.duration_since(user.last_reset_month);
+    if let Some(duration) = time_since_monthly {
+        if duration.days() >= 30 {
+            user.monthly_spent = Amount::zero();
+            user.last_reset_month = current_time;
+        }
+    }
+    
+    // Check limits
+    if user.daily_spent.micro_ccd + params.amount.micro_ccd > user.daily_limit.micro_ccd {
+        return Err(ContractError::DailyLimitExceeded);
+    }
+    
+    if user.monthly_spent.micro_ccd + params.amount.micro_ccd > user.monthly_limit.micro_ccd {
+        return Err(ContractError::MonthlyLimitExceeded);
+    }
+    
+    // Check if user is excluded
+    if is_excluded {
+        if let Some(cooldown_until) = user.cooldown_until {
+            if current_time < cooldown_until {
+                return Err(ContractError::OnCooldown);
+            }
+            // Cooldown ended - we'll remove from excluded set after releasing user borrow
+        } else {
+            return Err(ContractError::SelfExcluded);
+        }
+    }
+    
+    // Record the transaction
+    user.daily_spent.micro_ccd += params.amount.micro_ccd;
+    user.monthly_spent.micro_ccd += params.amount.micro_ccd;
+    user.platforms_used.insert(params.platform_id);
+    
+    // If cooldown ended, remove from excluded set
+    if is_excluded {
+        if let Some(cooldown_until) = user.cooldown_until {
+            if current_time >= cooldown_until {
+                // Drop the user borrow first
+                drop(user);
+                host.state_mut().excluded_users.remove(&user_hash);
+                // Re-borrow to clear cooldown
+                if let Some(mut user) = host.state_mut().registry.get_mut(&user_hash) {
+                    user.cooldown_until = None;
+                }
+            }
+        }
+    }
+    
+    Ok(())
+}
+
+
