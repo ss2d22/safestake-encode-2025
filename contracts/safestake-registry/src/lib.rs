@@ -75,3 +75,23 @@ pub enum ContractError {
     // User has not completed age verification
     AgeNotVerified,
 }
+
+ // Eligibility status for placing bets
+#[derive(Serialize, SchemaType, Debug, PartialEq, Eq)]
+pub enum EligibilityStatus {
+    // User is eligible to place the bet
+    Eligible,
+    // User would exceed daily limit
+    DailyLimitReached,
+    // User would exceed monthly limit
+    MonthlyLimitReached,
+    // User is self-excluded
+    SelfExcluded,
+    // User is on cooldown
+    OnCooldown,
+    // User not registered
+    NotRegistered,
+    // User has not verified their age
+    AgeNotVerified,
+}
+
