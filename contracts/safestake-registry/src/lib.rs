@@ -95,3 +95,9 @@ pub enum EligibilityStatus {
     AgeNotVerified,
 }
 
+// Parameter for initializing the contract with verifier's public key
+#[derive(Serialize, SchemaType)]
+pub struct InitParams {
+    // Public key of the backend verifier (for signature verification)
+    pub verifier_key: PublicKeyEd25519,
+}
