@@ -159,6 +159,12 @@ fn init(ctx: &InitContext, state_builder: &mut StateBuilder) -> InitResult<State
         excluded_users: state_builder.new_set(),
         verifier_key: params.verifier_key,
     })
+}
+
+// Helper function to hash an account address to create a deterministic identity hash.
+fn hash_account(account: AccountAddress) -> IdentityHash {
+    *account.as_ref()
+}
 
 // Register a new user with age verification
 // The backend verifier must have verified the user's age proof off-chain
@@ -396,7 +402,69 @@ fn record_transaction(
     Ok(())
 }
 
-// Helper function to hash an account address to create a deterministic identity hash.
-fn hash_account(account: AccountAddress) -> IdentityHash {
-    *account.as_ref()
+// Check if a user is eligible to place a bet 
+#[receive(
+    contract = "safestake_registry",
+    name = "check_eligibility",
+    parameter = "CheckEligibilityParams",
+    return_value = "EligibilityStatus",
+    error = "ContractError"
+)]
+fn check_eligibility(
+    ctx: &ReceiveContext,
+    host: &Host<State>,
+) -> Result<EligibilityStatus, ContractError> {
+    let params: CheckEligibilityParams = ctx.parameter_cursor().get()?;
+    let user_hash = hash_account(params.user_account);
+    let current_time = ctx.metadata().slot_time();
+    
+    let user = match host.state().registry.get(&user_hash) {
+        Some(u) => u,
+        None => return Ok(EligibilityStatus::NotRegistered),
+    };
+    
+    // Check age verification FIRST
+    if !user.age_verified {
+        return Ok(EligibilityStatus::AgeNotVerified);
+    }
+    
+    // Check if user is excluded
+    if host.state().excluded_users.contains(&user_hash) {
+        if let Some(cooldown_until) = user.cooldown_until {
+            if current_time < cooldown_until {
+                return Ok(EligibilityStatus::OnCooldown);
+            }
+        } else {
+            return Ok(EligibilityStatus::SelfExcluded);
+        }
+    }
+    
+    // Calculate adjusted spending
+    let mut daily_spent = user.daily_spent;
+    let mut monthly_spent = user.monthly_spent;
+    
+    let time_since_daily = current_time.duration_since(user.last_reset_day);
+    if let Some(duration) = time_since_daily {
+        if duration.days() >= 1 {
+            daily_spent = Amount::zero();
+        }
+    }
+    
+    let time_since_monthly = current_time.duration_since(user.last_reset_month);
+    if let Some(duration) = time_since_monthly {
+        if duration.days() >= 30 {
+            monthly_spent = Amount::zero();
+        }
+    }
+    
+    // Check limits
+    if daily_spent.micro_ccd + params.proposed_amount.micro_ccd > user.daily_limit.micro_ccd {
+        return Ok(EligibilityStatus::DailyLimitReached);
+    }
+    
+    if monthly_spent.micro_ccd + params.proposed_amount.micro_ccd > user.monthly_limit.micro_ccd {
+        return Ok(EligibilityStatus::MonthlyLimitReached);
+    }
+    
+    Ok(EligibilityStatus::Eligible)
 }
