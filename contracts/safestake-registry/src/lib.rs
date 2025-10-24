@@ -40,15 +40,38 @@ pub struct UserCompliance<S = StateApi> {
     pub age_verified: bool,
 }
 
-/// state of the contract
+// state of the contract
 #[derive(Serial, DeserialWithState)]
 #[concordium(state_parameter = "S")]
 pub struct State<S = StateApi> {
-    /// Registry mapping identity hashes to user compliance data
+    // Registry mapping identity hashes to user compliance data
     registry: StateMap<IdentityHash, UserCompliance<S>, S>,
-    /// Set of users who have self-excluded
+    // Set of users who have self-excluded
     excluded_users: StateSet<IdentityHash, S>,
-    /// Backend verifier's public key for signature verification
+    // Backend verifier's public key for signature verification
     verifier_key: PublicKeyEd25519,
 }
 
+// Custom errors 
+#[derive(Debug, PartialEq, Eq, Reject, Serialize, SchemaType)]
+pub enum ContractError {
+    // Failed to parse the input parameter
+    #[from(ParseError)]
+    ParseParams,
+    // User not found in registry
+    UserNotRegistered,
+    // User has exceeded their daily spending limit
+    DailyLimitExceeded,
+    // User has exceeded their monthly spending limit
+    MonthlyLimitExceeded,
+    // User is currently self-excluded
+    SelfExcluded,
+    // User is in cooldown period
+    OnCooldown,
+    // Invalid limit values (daily > monthly)
+    InvalidLimits,
+    // Age verification signature is invalid
+    InvalidSignature,
+    // User has not completed age verification
+    AgeNotVerified,
+}
