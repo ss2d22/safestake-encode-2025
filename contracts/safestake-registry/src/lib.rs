@@ -101,3 +101,10 @@ pub struct InitParams {
     // Public key of the backend verifier (for signature verification)
     pub verifier_key: PublicKeyEd25519,
 }
+
+// Parameter for self-exclusion.
+#[derive(Serialize, SchemaType)]
+pub struct SelfExcludeParams {
+    // Duration in days
+    pub duration_days: u32,
+}åå
