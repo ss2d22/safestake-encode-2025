@@ -148,3 +148,15 @@ pub struct CheckEligibilityParams {
     // Proposed bet amount in microCCD
     pub proposed_amount: Amount,
 }
+
+// Initialize the contract with verifier's public key.
+#[init(contract = "safestake_registry", parameter = "InitParams")]
+fn init(ctx: &InitContext, state_builder: &mut StateBuilder) -> InitResult<State> {
+    let params: InitParams = ctx.parameter_cursor().get()?;
+    
+    Ok(State {
+        registry: state_builder.new_map(),
+        excluded_users: state_builder.new_set(),
+        verifier_key: params.verifier_key,
+    })
+}
