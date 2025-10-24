@@ -159,4 +159,57 @@ fn init(ctx: &InitContext, state_builder: &mut StateBuilder) -> InitResult<State
         excluded_users: state_builder.new_set(),
         verifier_key: params.verifier_key,
     })
+
+// Register a new user with age verification. 
+// The backend verifier must have verified the user's age proof off-chain
+// and signed the user's account address. This function verifies that signature.
+#[receive(
+    contract = "safestake_registry",
+    name = "register_user",
+    parameter = "RegisterUserParams",
+    error = "ContractError",
+    crypto_primitives,
+    mutable
+)]
+fn register_user(
+    ctx: &ReceiveContext,
+    host: &mut Host<State>,
+    crypto_primitives: &impl HasCryptoPrimitives,
+) -> Result<(), ContractError> {
+    let params: RegisterUserParams = ctx.parameter_cursor().get()?;
+    
+    // Verify the signature from the backend verifier
+    // The message signed is the user's account address (32 bytes)
+    let message = params.account.as_ref();
+    
+    // Use crypto_primitives to verify Ed25519 signature
+    let is_valid = crypto_primitives.verify_ed25519_signature(
+        host.state().verifier_key,
+        params.signature,
+        message,
+    );
+    
+    if !is_valid {
+        return Err(ContractError::InvalidSignature);
+    }
+    
+    // Signature is valid! User has proven they're 18+
+    let identity_hash = hash_account(params.account);
+    let current_time = ctx.metadata().slot_time();
+    
+    let user_compliance = UserCompliance {
+        identity_hash,
+        daily_limit: Amount::zero(),
+        monthly_limit: Amount::zero(),
+        daily_spent: Amount::zero(),
+        monthly_spent: Amount::zero(),
+        last_reset_day: current_time,
+        last_reset_month: current_time,
+        cooldown_until: None,
+        platforms_used: host.state_builder().new_set(),
+        age_verified: true,  // Mark as age-verified
+    };
+    
+    let _ = host.state_mut().registry.insert(identity_hash, user_compliance);
+    Ok(())
 }
