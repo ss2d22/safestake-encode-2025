@@ -1,75 +1,11 @@
-//! # Concordium V1 Smart Contract Template
-
+//! #  SafeStake Registry - Responsible Gambling Protocol with Age Verification
+//! 
+//! This contract aims to implement
+//! Users must prove they are 18+ via ZK proofs verified by a backend, which then
+//! signs their account address. The contract verifies this signature on-chain. 
+//! 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use concordium_std::*;
 use core::fmt::Debug;
 
-/// The state of the smart contract.
-#[derive(Serialize, SchemaType)]
-pub struct State {
-    // Add fields to this type to hold state in the smart contract.
-    // This field is just an example.
-    custom_state_field: i8,
-}
-
-/// Errors that may be emitted by this smart contract.
-#[derive(Debug, PartialEq, Eq, Reject, Serialize, SchemaType)]
-pub enum Error {
-    /// Failed parsing the input parameter.
-    #[from(ParseError)]
-    ParseParams,
-    /// Add variants to this enum to be able to return custom errors from the smart contract.
-    CustomError,
-}
-
-/// Any type implementing Serialize and SchemaType can be
-/// used as an input parameter to a smart contract function.
-#[derive(Serialize, SchemaType)]
-pub struct CustomInputParameter {
-    /// Just an example, you could have any fields here.
-    pub num: i8,
-}
-
-/// Creates a new instance of the smart contract.
-#[init(contract = "safestake_registry", parameter = "CustomInputParameter")]
-fn init(ctx: &InitContext, _state_builder: &mut StateBuilder) -> InitResult<State> {
-    let param: CustomInputParameter = ctx.parameter_cursor().get()?;
-
-    // Create the initial state of the smart contract here.
-    // This state can then be used in the other functions.
-    Ok(State {
-        custom_state_field: param.num,
-    })
-}
-
-/// Receive function. The input parameter in this function is the boolean variable `return_error`.
-///  If `return_error == true`, the receive function will return a custom error.
-///  If `return_error == false`, the receive function executes successfully.
-#[receive(
-    contract = "safestake_registry",
-    name = "receive",
-    // You can use any other type than bool here, bool is used here only as an example.
-    parameter = "bool",
-    error = "Error",
-    mutable
-)]
-fn receive(ctx: &ReceiveContext, _host: &mut Host<State>) -> Result<(), Error> {
-    // Parse input and apply any other logic relevant for this function of the smart contract.
-    // You can mutate the smart contract state here via host.state_mut(), since the receive attribute has the mutable flag.
-    // You can return any of your custom error variants from above.
-
-    // Returns ParseError on failure.
-    let return_error = ctx.parameter_cursor().get()?;
-    if return_error {
-        Err(Error::CustomError)
-    } else {
-        Ok(())
-    }
-}
-
-/// Returns the state of the smart contract.
-#[receive(contract = "safestake_registry", name = "view", return_value = "State")]
-fn view<'a>(_ctx: &ReceiveContext, host: &'a Host<State>) -> ReceiveResult<&'a State> {
-    Ok(host.state())
-}
