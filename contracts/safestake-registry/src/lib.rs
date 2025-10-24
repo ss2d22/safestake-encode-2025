@@ -107,4 +107,44 @@ pub struct InitParams {
 pub struct SelfExcludeParams {
     // Duration in days
     pub duration_days: u32,
-}åå
+}
+
+// Parameter for registering a new user with age verification.
+#[derive(Serialize, SchemaType)]
+pub struct RegisterUserParams {
+    // Account address of user to register
+    pub account: AccountAddress,
+    // Signature from backend verifier (proves age verification passed)
+    pub signature: SignatureEd25519,
+}
+
+// Parameter for setting spending limits.
+#[derive(Serialize, SchemaType)]
+pub struct SetLimitsParams {
+    // Daily spending limit in microCCD
+    //TODO: update contract to use stablecoin instead of CCD
+    pub daily_limit: Amount,
+    // Monthly spending limit in microCCD
+    //TODO: update contract to use stablecoin instead of CCD
+    pub monthly_limit: Amount,
+}
+
+// Parameter for recording a transaction.
+#[derive(Serialize, SchemaType)]
+pub struct RecordTransactionParams {
+    // User's account address
+    pub user_account: AccountAddress,
+    // Amount of the bet in microCCD
+    pub amount: Amount,
+    // Platform identifier
+    pub platform_id: String,
+}
+
+// Parameter for checking eligibility.
+#[derive(Serialize, SchemaType)]
+pub struct CheckEligibilityParams {
+    // User's account address
+    pub user_account: AccountAddress,
+    // Proposed bet amount in microCCD
+    pub proposed_amount: Amount,
+}
