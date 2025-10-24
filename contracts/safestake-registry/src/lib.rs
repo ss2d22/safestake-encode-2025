@@ -102,14 +102,14 @@ pub struct InitParams {
     pub verifier_key: PublicKeyEd25519,
 }
 
-// Parameter for self-exclusion.
+// Parameter for self-exclusion
 #[derive(Serialize, SchemaType)]
 pub struct SelfExcludeParams {
     // Duration in days
     pub duration_days: u32,
 }
 
-// Parameter for registering a new user with age verification.
+// Parameter for registering a new user with age verification
 #[derive(Serialize, SchemaType)]
 pub struct RegisterUserParams {
     // Account address of user to register
@@ -118,7 +118,7 @@ pub struct RegisterUserParams {
     pub signature: SignatureEd25519,
 }
 
-// Parameter for setting spending limits.
+// Parameter for setting spending limits
 #[derive(Serialize, SchemaType)]
 pub struct SetLimitsParams {
     // Daily spending limit in microCCD
@@ -129,7 +129,7 @@ pub struct SetLimitsParams {
     pub monthly_limit: Amount,
 }
 
-// Parameter for recording a transaction.
+// Parameter for recording a transaction
 #[derive(Serialize, SchemaType)]
 pub struct RecordTransactionParams {
     // User's account address
@@ -140,7 +140,7 @@ pub struct RecordTransactionParams {
     pub platform_id: String,
 }
 
-// Parameter for checking eligibility.
+// Parameter for checking eligibility
 #[derive(Serialize, SchemaType)]
 pub struct CheckEligibilityParams {
     // User's account address
@@ -160,9 +160,9 @@ fn init(ctx: &InitContext, state_builder: &mut StateBuilder) -> InitResult<State
         verifier_key: params.verifier_key,
     })
 
-// Register a new user with age verification. 
+// Register a new user with age verification
 // The backend verifier must have verified the user's age proof off-chain
-// and signed the user's account address. This function verifies that signature.
+// and signed the user's account address. This function verifies that signature
 #[receive(
     contract = "safestake_registry",
     name = "register_user",
@@ -211,5 +211,60 @@ fn register_user(
     };
     
     let _ = host.state_mut().registry.insert(identity_hash, user_compliance);
+    Ok(())
+}
+
+// Set spending limits for the calling user
+#[receive(
+    contract = "safestake_registry",
+    name = "set_limits",
+    parameter = "SetLimitsParams",
+    error = "ContractError",
+    mutable
+)]
+fn set_limits(
+    ctx: &ReceiveContext,
+    host: &mut Host<State>,
+) -> Result<(), ContractError> {
+    let params: SetLimitsParams = ctx.parameter_cursor().get()?;
+    
+    // Validate limits
+    if params.daily_limit > params.monthly_limit {
+        return Err(ContractError::InvalidLimits);
+    }
+    
+    let sender = ctx.sender();
+    let sender_hash = match sender {
+        Address::Account(acc) => hash_account(acc),
+        Address::Contract(_) => return Err(ContractError::ParseParams),
+    };
+    
+    let current_time = ctx.metadata().slot_time();
+    
+    // Check if user exists
+    let user_exists = host.state().registry.get(&sender_hash).is_some();
+    
+    if !user_exists {
+        // Create new user (without age verification)
+        let new_user = UserCompliance {
+            identity_hash: sender_hash,
+            daily_limit: params.daily_limit,
+            monthly_limit: params.monthly_limit,
+            daily_spent: Amount::zero(),
+            monthly_spent: Amount::zero(),
+            last_reset_day: current_time,
+            last_reset_month: current_time,
+            cooldown_until: None,
+            platforms_used: host.state_builder().new_set(),
+            age_verified: false,  // NOT age-verified yet
+        };
+       let _ = host.state_mut().registry.insert(sender_hash, new_user);
+    } else {
+        // Update existing user
+        let mut user = host.state_mut().registry.get_mut(&sender_hash).unwrap();
+        user.daily_limit = params.daily_limit;
+        user.monthly_limit = params.monthly_limit;
+    }
+    
     Ok(())
 }
