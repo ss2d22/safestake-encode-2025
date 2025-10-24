@@ -268,3 +268,37 @@ fn set_limits(
     
     Ok(())
 }
+
+// Self-exclude from all gambling platforms for a specified duration
+#[receive(
+    contract = "safestake_registry",
+    name = "self_exclude",
+    parameter = "SelfExcludeParams",
+    error = "ContractError",
+    mutable
+)]
+fn self_exclude(
+    ctx: &ReceiveContext,
+    host: &mut Host<State>,
+) -> Result<(), ContractError> {
+    let params: SelfExcludeParams = ctx.parameter_cursor().get()?;
+    
+    let sender = ctx.sender();
+    let sender_hash = match sender {
+        Address::Account(acc) => hash_account(acc),
+        Address::Contract(_) => return Err(ContractError::ParseParams),
+    };
+    
+    host.state_mut().excluded_users.insert(sender_hash);
+    
+    let current_time = ctx.metadata().slot_time();
+    let duration_millis = params.duration_days as u64 * 24 * 60 * 60 * 1000;
+    let cooldown_until = current_time.checked_add(Duration::from_millis(duration_millis))
+        .ok_or(ContractError::ParseParams)?;
+    
+    if let Some(mut user) = host.state_mut().registry.get_mut(&sender_hash) {
+        user.cooldown_until = Some(cooldown_until);
+    }
+    
+    Ok(())
+}
