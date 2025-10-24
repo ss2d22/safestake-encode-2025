@@ -52,7 +52,6 @@ app.get("/api/public-key", (req: Request, res: Response) => {
   res.json({
     publicKey: config.publicKey,
     network: config.network,
-    note: "Use this public key when deploying the SafeStake Registry contract",
   });
 });
 
