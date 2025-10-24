@@ -9,3 +9,5 @@
 use concordium_std::*;
 use core::fmt::Debug;
 
+// This should act as user's unique identifier (32 byte hash)
+type IdentityHash = [u8; 32];
