@@ -39,3 +39,16 @@ pub struct UserCompliance<S = StateApi> {
     // Age verification status
     pub age_verified: bool,
 }
+
+/// state of the contract
+#[derive(Serial, DeserialWithState)]
+#[concordium(state_parameter = "S")]
+pub struct State<S = StateApi> {
+    /// Registry mapping identity hashes to user compliance data
+    registry: StateMap<IdentityHash, UserCompliance<S>, S>,
+    /// Set of users who have self-excluded
+    excluded_users: StateSet<IdentityHash, S>,
+    /// Backend verifier's public key for signature verification
+    verifier_key: PublicKeyEd25519,
+}
+
