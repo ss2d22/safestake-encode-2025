@@ -25,6 +25,16 @@ ed25519.etc.sha512Sync = (...m) => sha512(ed25519.etc.concatBytes(...m));
 
 const app = express();
 
+app.use(
+  cors({
+    origin: "*", // For testing
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+    optionsSuccessStatus: 200,
+  })
+);
+
 // Middleware
 app.use(express.json({ limit: "10mb" }));
 app.use(morgan("dev"));
@@ -206,14 +216,6 @@ async function startServer() {
     // Load configuration
     config = await loadConfig();
     validateConfig(config);
-
-    // Configure CORS after loading config
-    app.use(
-      cors({
-        origin: "*",
-        credentials: true,
-      })
-    );
 
     // Start listening
     app.listen(config.port, () => {
