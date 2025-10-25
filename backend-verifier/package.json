@@ -20,6 +20,7 @@
   "author": "Sriram Sundar",
   "license": "MIT",
   "dependencies": {
+    "@concordium/web-sdk": "^11.0.0",
     "@noble/ed25519": "^2.0.0",
     "@noble/hashes": "^2.0.1",
     "axios": "^1.6.2",

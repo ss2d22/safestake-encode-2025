@@ -112,7 +112,7 @@ app.post("/api/verify-and-sign", async (req: Request, res: Response) => {
         proof,
         {
           headers: { "Content-Type": "application/json" },
-          timeout: 10000, // 10 second timeout
+          timeout: 10000,
         }
       );
 
@@ -125,7 +125,6 @@ app.post("/api/verify-and-sign", async (req: Request, res: Response) => {
         error.response?.statusText
       );
 
-      // If Concordium's verifier rejects the proof (400/404), it's invalid
       if (error.response?.status === 400 || error.response?.status === 404) {
         return res.status(400).json({
           error: "Invalid Proof",
@@ -135,26 +134,30 @@ app.post("/api/verify-and-sign", async (req: Request, res: Response) => {
         } as ErrorResponse);
       }
 
-      // Other errors (network issues, etc.)
       throw new Error(`Concordium verifier error: ${error.message}`);
     }
 
     // Step 2: Sign the account address with our private key
     console.log("🔐 Signing account address...");
 
-    // Convert account address to bytes (remove any "3" prefix if present)
-    const addressToSign = accountAddress.startsWith("3")
-      ? accountAddress.substring(1)
-      : accountAddress;
+    //  Decode base58 to get raw 32-byte account address
+    const { AccountAddress } = await import("@concordium/web-sdk");
+    const accountAddr = AccountAddress.fromBase58(accountAddress);
 
-    const messageBytes = Buffer.from(addressToSign, "utf8");
+    // Get the raw 32 bytes (this is what the contract verifies against)
+    const messageBytes = Buffer.from(accountAddr.decodedAddress);
+
+    console.log(`  - Account (base58): ${accountAddress}`);
+    console.log(`  - Message bytes length: ${messageBytes.length} bytes`);
+
     const privateKeyBytes = Buffer.from(config.signingKey, "hex");
 
-    // Sign the message
+    // Sign the raw account bytes
     const signatureBytes = await ed25519.sign(messageBytes, privateKeyBytes);
     const signature = Buffer.from(signatureBytes).toString("hex");
 
     console.log("✅ Account address signed successfully");
+    console.log(`  - Signature: ${signature.substring(0, 32)}...`);
 
     const duration = Date.now() - startTime;
     console.log(`⏱️  Total processing time: ${duration}ms\n`);
@@ -178,7 +181,6 @@ app.post("/api/verify-and-sign", async (req: Request, res: Response) => {
     } as ErrorResponse);
   }
 });
-
 /**
  * 404 handler
  */
