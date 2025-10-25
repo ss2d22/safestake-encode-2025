@@ -22,11 +22,11 @@ import {
   type AccountTransactionHeader,
   TransactionExpiry,
   CcdAmount,
+  TransactionHash,
   type UpdateContractPayload,
   signTransaction,
   type AccountSigner,
   Parameter,
-  type TransactionHash,
   ReturnValue,
 } from "@concordium/web-sdk";
 
@@ -112,10 +112,6 @@ export class SafeStakeSDKBrowser {
     }
   }
 
-  // ============================================================================
-  // AGE VERIFICATION METHODS
-  // ============================================================================
-
   /**
    * Get the verifier backend's public key
    */
@@ -170,10 +166,6 @@ export class SafeStakeSDKBrowser {
       };
     }
   }
-
-  // ============================================================================
-  // REGISTRATION METHODS
-  // ============================================================================
 
   /**
    * Register a new user in the SafeStake system
@@ -271,7 +263,480 @@ export class SafeStakeSDKBrowser {
       };
     }
   }
+  async registerUserWithBrowserWallet(
+    request: RegisterUserRequest,
+    walletSignAndSend: (
+      accountAddress: string,
+      type: AccountTransactionType,
+      payload: any,
+      parameters: any
+    ) => Promise<string>
+  ): Promise<RegisterUserResult> {
+    try {
+      if (!this.moduleSchema) {
+        throw new Error("SDK not initialized. Call initialize() first.");
+      }
 
+      // Validate signature format
+      if (
+        !request.signature ||
+        typeof request.signature !== "string" ||
+        request.signature.length !== 128
+      ) {
+        throw new Error(
+          "Invalid signature: must be 128 hex characters (64 bytes)"
+        );
+      }
+
+      // Validate signature is valid hex
+      if (!/^[0-9a-fA-F]{128}$/.test(request.signature)) {
+        throw new Error("Invalid signature: not valid hexadecimal");
+      }
+
+      console.log("🔒 Registering user with age verification signature...");
+
+      // Prepare JSON parameters
+      const paramsJson = {
+        account: AccountAddress.toBase58(request.userAccount),
+        signature: request.signature.toLowerCase(),
+      };
+
+      console.log("📦 Preparing parameters...");
+      console.log("  - Account:", paramsJson.account);
+      console.log(
+        "  - Signature:",
+        paramsJson.signature.substring(0, 16) + "..."
+      );
+
+      const receiveName = ReceiveName.fromString(
+        `${this.contractName.value}.register_user`
+      );
+
+      // Payload WITHOUT message
+      const payload = {
+        amount: CcdAmount.zero(),
+        address: this.config.contractAddress,
+        receiveName: receiveName,
+        maxContractExecutionEnergy: Energy.create(BigInt(30000)),
+      };
+
+      // Get the module schema for the register_user entrypoint
+      const moduleSchema = this.moduleSchema;
+
+      // Convert to base64 - properly encode the entire module schema
+      const schemaBase64 = (() => {
+        const bytes = new Uint8Array(moduleSchema);
+        const binArray = Array.from(bytes, (byte) => String.fromCharCode(byte));
+        return btoa(binArray.join(""));
+      })();
+
+      console.log("📋 Schema length:", schemaBase64.length);
+
+      // Typed parameters with the full module schema
+      const typedParams = {
+        parameters: paramsJson,
+        schema: {
+          type: "ModuleSchema" as const, // Changed from TypeSchema to ModuleSchema
+          value: schemaBase64,
+        },
+      };
+
+      console.log("🔐 Sending transaction with typed parameters...");
+
+      const accountBase58 = AccountAddress.toBase58(request.userAccount);
+
+      const txHashString = await walletSignAndSend(
+        accountBase58,
+        AccountTransactionType.Update,
+        payload,
+        typedParams
+      );
+
+      console.log("✅ Transaction sent:", txHashString);
+
+      const txHash = TransactionHash.fromHexString(txHashString);
+
+      console.log("⏳ Waiting for transaction finalization...");
+      const status = await this.client.waitForTransactionFinalization(txHash);
+
+      if (
+        status.summary.type === "accountTransaction" &&
+        status.summary.transactionType === "failed"
+      ) {
+        const rejectReason = (status.summary as any).rejectReason;
+        const rejectReasonStr =
+          typeof rejectReason === "object"
+            ? JSON.stringify(rejectReason, (_, v) =>
+                typeof v === "bigint" ? v.toString() : v
+              )
+            : String(rejectReason);
+
+        return {
+          success: false,
+          error: `Transaction failed: ${rejectReasonStr}`,
+        };
+      }
+
+      console.log("✅ User registered successfully!");
+
+      return {
+        success: true,
+        transactionHash: txHash.toString(),
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("❌ User registration failed:", errorMsg);
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  }
+
+  /**
+   * Set spending limits with browser wallet
+   */
+  async setLimitsWithBrowserWallet(
+    request: {
+      userAccount: AccountAddress.Type;
+      dailyLimitCCD: number;
+      monthlyLimitCCD: number;
+    },
+    walletSignAndSend: (
+      accountAddress: string,
+      type: AccountTransactionType,
+      payload: any,
+      parameters: any
+    ) => Promise<string>
+  ): Promise<{ success: boolean; transactionHash?: string; error?: string }> {
+    try {
+      if (!this.moduleSchema) {
+        throw new Error("SDK not initialized. Call initialize() first.");
+      }
+
+      console.log("💰 Setting spending limits...");
+
+      const dailyLimitMicroCCD = Math.floor(
+        request.dailyLimitCCD * 1_000_000
+      ).toString();
+      const monthlyLimitMicroCCD = Math.floor(
+        request.monthlyLimitCCD * 1_000_000
+      ).toString();
+
+      // Prepare JSON parameters
+      const paramsJson = {
+        daily_limit: dailyLimitMicroCCD,
+        monthly_limit: monthlyLimitMicroCCD,
+      };
+
+      console.log("📦 Preparing parameters...");
+      console.log("  - Daily limit:", request.dailyLimitCCD, "CCD");
+      console.log("  - Monthly limit:", request.monthlyLimitCCD, "CCD");
+
+      const receiveName = ReceiveName.fromString(
+        `${this.contractName.value}.set_limits`
+      );
+
+      // Payload WITHOUT message
+      const payload = {
+        amount: CcdAmount.zero(),
+        address: this.config.contractAddress,
+        receiveName: receiveName,
+        maxContractExecutionEnergy: Energy.create(BigInt(30000)),
+      };
+
+      // Convert schema to base64
+      const schemaBase64 = (() => {
+        const bytes = new Uint8Array(this.moduleSchema);
+        const binArray = Array.from(bytes, (byte) => String.fromCharCode(byte));
+        return btoa(binArray.join(""));
+      })();
+
+      // Typed parameters
+      const typedParams = {
+        parameters: paramsJson,
+        schema: {
+          type: "ModuleSchema" as const,
+          value: schemaBase64,
+        },
+      };
+
+      console.log("🔐 Sending transaction with typed parameters...");
+
+      const accountBase58 = AccountAddress.toBase58(request.userAccount);
+
+      const txHashString = await walletSignAndSend(
+        accountBase58,
+        AccountTransactionType.Update,
+        payload,
+        typedParams
+      );
+
+      console.log("✅ Transaction sent:", txHashString);
+
+      const txHash = TransactionHash.fromHexString(txHashString);
+
+      console.log("⏳ Waiting for transaction finalization...");
+      const status = await this.client.waitForTransactionFinalization(txHash);
+
+      if (
+        status.summary.type === "accountTransaction" &&
+        status.summary.transactionType === "failed"
+      ) {
+        const rejectReason = (status.summary as any).rejectReason;
+        const rejectReasonStr =
+          typeof rejectReason === "object"
+            ? JSON.stringify(rejectReason, (_, v) =>
+                typeof v === "bigint" ? v.toString() : v
+              )
+            : String(rejectReason);
+
+        return {
+          success: false,
+          error: `Transaction failed: ${rejectReasonStr}`,
+        };
+      }
+
+      console.log("✅ Limits set successfully!");
+
+      return {
+        success: true,
+        transactionHash: txHash.toString(),
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("❌ Set limits failed:", errorMsg);
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  }
+
+  /**
+   * Record a gambling transaction with browser wallet
+   */
+  async recordTransactionWithBrowserWallet(
+    request: RecordTransactionRequest,
+    walletSignAndSend: (
+      accountAddress: string,
+      type: AccountTransactionType,
+      payload: any,
+      parameters: any
+    ) => Promise<string>
+  ): Promise<RecordTransactionResult> {
+    try {
+      if (!this.moduleSchema) {
+        throw new Error("SDK not initialized. Call initialize() first.");
+      }
+
+      console.log("🎲 Recording gambling transaction...");
+
+      const amountMicroCCD = Math.floor(
+        request.amountCCD * 1_000_000
+      ).toString();
+
+      // Prepare JSON parameters
+      const paramsJson = {
+        user_account: AccountAddress.toBase58(request.userAccount),
+        amount: amountMicroCCD,
+        platform_id: this.config.platformId,
+      };
+
+      console.log("📦 Preparing parameters...");
+      console.log("  - User:", paramsJson.user_account);
+      console.log("  - Amount:", request.amountCCD, "CCD");
+      console.log("  - Platform:", this.config.platformId);
+
+      const receiveName = ReceiveName.fromString(
+        `${this.contractName.value}.record_transaction`
+      );
+
+      // Payload WITHOUT message
+      const payload = {
+        amount: CcdAmount.zero(),
+        address: this.config.contractAddress,
+        receiveName: receiveName,
+        maxContractExecutionEnergy: Energy.create(BigInt(30000)),
+      };
+
+      // Convert schema to base64
+      const schemaBase64 = (() => {
+        const bytes = new Uint8Array(this.moduleSchema);
+        const binArray = Array.from(bytes, (byte) => String.fromCharCode(byte));
+        return btoa(binArray.join(""));
+      })();
+
+      // Typed parameters
+      const typedParams = {
+        parameters: paramsJson,
+        schema: {
+          type: "ModuleSchema" as const,
+          value: schemaBase64,
+        },
+      };
+
+      console.log("🔐 Sending transaction with typed parameters...");
+
+      const accountBase58 = AccountAddress.toBase58(request.userAccount);
+
+      const txHashString = await walletSignAndSend(
+        accountBase58,
+        AccountTransactionType.Update,
+        payload,
+        typedParams
+      );
+
+      console.log("✅ Transaction sent:", txHashString);
+
+      const txHash = TransactionHash.fromHexString(txHashString);
+
+      console.log("⏳ Waiting for transaction finalization...");
+      const status = await this.client.waitForTransactionFinalization(txHash);
+
+      if (
+        status.summary.type === "accountTransaction" &&
+        status.summary.transactionType === "failed"
+      ) {
+        const rejectReason = (status.summary as any).rejectReason;
+        const rejectReasonStr =
+          typeof rejectReason === "object"
+            ? JSON.stringify(rejectReason, (_, v) =>
+                typeof v === "bigint" ? v.toString() : v
+              )
+            : String(rejectReason);
+
+        return {
+          success: false,
+          error: `Transaction failed: ${rejectReasonStr}`,
+        };
+      }
+
+      console.log("✅ Transaction recorded successfully!");
+
+      return {
+        success: true,
+        transactionHash: txHash.toString(),
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("❌ Record transaction failed:", errorMsg);
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  }
+
+  /**
+   * Self-exclude from gambling with browser wallet
+   */
+  async selfExcludeWithBrowserWallet(
+    request: {
+      userAccount: AccountAddress.Type;
+      durationDays: number;
+    },
+    walletSignAndSend: (
+      accountAddress: string,
+      type: AccountTransactionType,
+      payload: any,
+      parameters: any
+    ) => Promise<string>
+  ): Promise<{ success: boolean; transactionHash?: string; error?: string }> {
+    try {
+      if (!this.moduleSchema) {
+        throw new Error("SDK not initialized. Call initialize() first.");
+      }
+
+      console.log("🚫 Self-excluding from gambling...");
+
+      // Prepare JSON parameters
+      const paramsJson = {
+        duration_days: request.durationDays,
+      };
+
+      console.log("📦 Preparing parameters...");
+      console.log("  - Duration:", request.durationDays, "days");
+
+      const receiveName = ReceiveName.fromString(
+        `${this.contractName.value}.self_exclude`
+      );
+
+      // Payload WITHOUT message
+      const payload = {
+        amount: CcdAmount.zero(),
+        address: this.config.contractAddress,
+        receiveName: receiveName,
+        maxContractExecutionEnergy: Energy.create(BigInt(30000)),
+      };
+
+      // Convert schema to base64
+      const schemaBase64 = (() => {
+        const bytes = new Uint8Array(this.moduleSchema);
+        const binArray = Array.from(bytes, (byte) => String.fromCharCode(byte));
+        return btoa(binArray.join(""));
+      })();
+
+      // Typed parameters
+      const typedParams = {
+        parameters: paramsJson,
+        schema: {
+          type: "ModuleSchema" as const,
+          value: schemaBase64,
+        },
+      };
+
+      console.log("🔐 Sending transaction with typed parameters...");
+
+      const accountBase58 = AccountAddress.toBase58(request.userAccount);
+
+      const txHashString = await walletSignAndSend(
+        accountBase58,
+        AccountTransactionType.Update,
+        payload,
+        typedParams
+      );
+
+      console.log("✅ Transaction sent:", txHashString);
+
+      const txHash = TransactionHash.fromHexString(txHashString);
+
+      console.log("⏳ Waiting for transaction finalization...");
+      const status = await this.client.waitForTransactionFinalization(txHash);
+
+      if (
+        status.summary.type === "accountTransaction" &&
+        status.summary.transactionType === "failed"
+      ) {
+        const rejectReason = (status.summary as any).rejectReason;
+        const rejectReasonStr =
+          typeof rejectReason === "object"
+            ? JSON.stringify(rejectReason, (_, v) =>
+                typeof v === "bigint" ? v.toString() : v
+              )
+            : String(rejectReason);
+
+        return {
+          success: false,
+          error: `Transaction failed: ${rejectReasonStr}`,
+        };
+      }
+
+      console.log("✅ Self-exclusion activated!");
+
+      return {
+        success: true,
+        transactionHash: txHash.toString(),
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("❌ Self-exclusion failed:", errorMsg);
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  }
   /**
    * Set spending limits for a user
    */
@@ -539,10 +1004,6 @@ export class SafeStakeSDKBrowser {
       };
     }
   }
-
-  // ============================================================================
-  // UTILITY METHODS
-  // ============================================================================
 
   getClient(): ConcordiumGRPCWebClient {
     return this.client;
