@@ -1,5 +1,18 @@
 # safestake-encode-2025
 
+safestake aims to be a cross platform responsible gambling protocol that is easy to implement by gambling platforms (powered by concordium)
+
+## Projects in this repo
+
+- contracts
+  - rust concordium smart contracts with signature verification
+- backend-verifier
+  - basic express.js backend that uses concordium's hosted zk proof verifiers and signs on sucessful zk proof verification
+- sdk
+  - operator sdk (npm package) designed to make safetstake easy and straightforward to implement for gambling platforms
+- demo
+  - three vite react demo applications to show the sdk working with the backend verifier and the smart contract in action (and cross platform enforcement)
+
 ## Project structure
 
 ```
