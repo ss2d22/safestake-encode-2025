@@ -1,0 +1,57 @@
+{
+  "name": "@safestake/operator-sdk",
+  "version": "0.1.0",
+  "description": "SDK for integrating SafeStake responsible gambling protocol",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "browser": "./dist/index.browser.js",
+      "node": "./dist/index.js",
+      "default": "./dist/index.browser.js"
+    },
+    "./browser": "./dist/index.browser.js",
+    "./node": "./dist/index.js"
+  },
+  "browser": "./dist/index.browser.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "npm run test -- --watch",
+    "test:coverage": "npm run test -- --coverage",
+    "quick-test": "npm run build && node examples/quick-test.js",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "concordium",
+    "gambling",
+    "responsible-gambling",
+    "blockchain",
+    "sdk"
+  ],
+  "author": "Sriram Sundar",
+  "license": "MIT",
+  "dependencies": {
+    "@concordium/common-sdk": "^9.0.0",
+    "@concordium/web-sdk": "^10.0.0",
+    "@grpc/grpc-js": "^1.14.0",
+    "axios": "^1.12.2"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.9.1",
+    "dotenv": "^17.2.3",
+    "jest": "^30.2.0",
+    "nodemon": "^3.1.10",
+    "ts-jest": "^29.4.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
