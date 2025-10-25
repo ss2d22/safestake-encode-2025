@@ -210,7 +210,7 @@ async function startServer() {
     // Configure CORS after loading config
     app.use(
       cors({
-        origin: config.allowedOrigins,
+        origin: "*",
         credentials: true,
       })
     );
