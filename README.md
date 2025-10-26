@@ -13,7 +13,6 @@ SafeStake enables gambling operators to verify user age and compliance requireme
 - Smart contract-based transaction registry
 - Protocol-Level Token (PLT) support for real money gambling
 - Easy-to-integrate operator SDK
-- Multi-platform compliance tracking
 
 ## Architecture
 
