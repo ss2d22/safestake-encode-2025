@@ -16,7 +16,7 @@ export function getConcordiumVerifierUrl(
 ): string {
   return network === "mainnet"
     ? "https://web3id-verifier.mainnet.concordium.software/v0/verify"
-    : "https://web3id-verifier.testnet.concordium.com/v0/verify";
+    : "http://localhost:7017/v0/verify";
 }
 
 /**

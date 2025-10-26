@@ -29,7 +29,7 @@ import {
 } from "../config";
 import type { Match } from "./MatchDisplay";
 
-const PLATFORM_ACCOUNT = "3AydpLAJiUVjMhxddULZjZNN2XJYEXE2cFezC1iiWcWH1GKxAF";
+const PLATFORM_ACCOUNT = "3VMRuYvsXnU3xKEo1WDnRycRjCezuJa3gq5XUNws62CfjnBUNr";
 
 interface Bet {
   id: string;
@@ -134,7 +134,7 @@ export default function BetSlip({
     return () => clearTimeout(debounce);
   }, [sdk, account, stake, isRegistered]);
 
-  const PLT_TOKEN_ID = "your-plt-token-id-here"; 
+  const PLT_TOKEN_ID = "your-plt-token-id-here";
 
   const handlePlaceBet = async () => {
     if (!sdk || !isRegistered || bets.length === 0 || stake <= 0) return;
@@ -290,7 +290,7 @@ export default function BetSlip({
 
             {/* Stake Input */}
             <div className="space-y-2">
-              <Label htmlFor="stake">Stake Amount (CCD)</Label>
+              <Label htmlFor="stake">Stake Amount (USDC)</Label>
               <Input
                 id="stake"
                 type="number"
@@ -312,13 +312,13 @@ export default function BetSlip({
               )}
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Stake</span>
-                <span className="font-medium">{stake.toFixed(2)} CCD</span>
+                <span className="font-medium">{stake.toFixed(2)} USDC</span>
               </div>
               <Separator />
               <div className="flex justify-between">
                 <span className="font-medium">Potential Win</span>
                 <span className="font-bold text-green-600">
-                  {potentialWin.toFixed(2)} CCD
+                  {potentialWin.toFixed(2)} USDC
                 </span>
               </div>
             </div>
@@ -375,7 +375,7 @@ export default function BetSlip({
                   Placing Bet...
                 </>
               ) : (
-                `🎯 Place Bet (${stake.toFixed(2)} CCD)`
+                `🎯 Place Bet (${stake.toFixed(2)} USDC)`
               )}
             </Button>
 

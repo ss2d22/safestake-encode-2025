@@ -201,7 +201,7 @@ export default function CasinoGame({
     }
   };
 
-  const PLT_TOKEN_ID = "your-plt-token-id-here"; 
+  const PLT_TOKEN_ID = "USDC";
 
   const handleRollDice = async () => {
     if (!sdk || !isRegistered) return;
@@ -245,7 +245,7 @@ export default function CasinoGame({
 
       // 🆕 PLATFORM ACCOUNT
       const PLATFORM_ACCOUNT = SDKAccountAddress.fromBase58(
-        "3AydpLAJiUVjMhxddULZjZNN2XJYEXE2cFezC1iiWcWH1GKxAF"
+        "3VMRuYvsXnU3xKEo1WDnRycRjCezuJa3gq5XUNws62CfjnBUNr"
       );
 
       // 🆕 STEP 1: Transfer REAL PLT tokens to platform
@@ -452,7 +452,7 @@ export default function CasinoGame({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalWagered.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground mt-1">CCD total</p>
+            <p className="text-xs text-muted-foreground mt-1">USDC total</p>
           </CardContent>
         </Card>
 
@@ -537,8 +537,8 @@ export default function CasinoGame({
                     {lastWin
                       ? `🎉 You Won ${(
                           parseFloat(betAmount) * multiplier
-                        ).toFixed(2)} CCD!`
-                      : `😔 You Lost ${betAmount} CCD`}
+                        ).toFixed(2)} USDC!`
+                      : `😔 You Lost ${betAmount} USDC`}
                   </p>
                   <p
                     className={`text-sm mt-1 ${
@@ -571,7 +571,7 @@ export default function CasinoGame({
                         className="text-lg h-12 pr-16"
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
-                        CCD
+                        USDC
                       </span>
                     </div>
                     <div className="flex gap-2">
@@ -660,7 +660,7 @@ export default function CasinoGame({
                       Rolling...
                     </>
                   ) : (
-                    <>🎲 Roll Dice • Bet {betAmount} CCD</>
+                    <>🎲 Roll Dice • Bet {betAmount} USDC</>
                   )}
                 </Button>
 
@@ -690,7 +690,7 @@ export default function CasinoGame({
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="daily" className="text-sm">
-                  Daily Limit (CCD)
+                  Daily Limit (USDC)
                 </Label>
                 <Input
                   id="daily"
@@ -704,7 +704,7 @@ export default function CasinoGame({
 
               <div className="space-y-2">
                 <Label htmlFor="monthly" className="text-sm">
-                  Monthly Limit (CCD)
+                  Monthly Limit (USDC)
                 </Label>
                 <Input
                   id="monthly"
