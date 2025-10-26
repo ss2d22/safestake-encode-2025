@@ -201,6 +201,8 @@ export default function CasinoGame({
     }
   };
 
+  const PLT_TOKEN_ID = "your-plt-token-id-here"; 
+
   const handleRollDice = async () => {
     if (!sdk || !isRegistered) return;
 
@@ -246,13 +248,14 @@ export default function CasinoGame({
         "3AydpLAJiUVjMhxddULZjZNN2XJYEXE2cFezC1iiWcWH1GKxAF"
       );
 
-      // 🆕 STEP 1: Transfer PLT to platform (real money!)
-      console.log("💸 Transferring bet amount to platform...");
-      const pltResult = await sdk.executePLTTransfer(
+      // 🆕 STEP 1: Transfer REAL PLT tokens to platform
+      console.log("💸 Transferring PLT tokens to platform...");
+      const pltResult = await sdk.executeRealPLTTransfer(
         {
           userAccount,
           platformAccount: PLATFORM_ACCOUNT,
           amountCCD: amount,
+          tokenId: PLT_TOKEN_ID, // ← NEW: Real PLT token
           memo: `Dice bet ${Date.now()}`,
         },
         walletSigner
@@ -261,11 +264,14 @@ export default function CasinoGame({
       if (!pltResult.success) {
         clearInterval(rollInterval);
         setIsRolling(false);
-        alert("❌ PLT transfer failed: " + pltResult.error);
+        alert("❌ PLT token transfer failed: " + pltResult.error);
         return;
       }
 
-      console.log("✅ PLT transferred! TxHash:", pltResult.transactionHash);
+      console.log(
+        "✅ PLT tokens transferred! TxHash:",
+        pltResult.transactionHash
+      );
 
       // 🆕 STEP 2: Record transaction in registry
       console.log("📝 Recording transaction in SafeStake registry...");
@@ -293,9 +299,11 @@ export default function CasinoGame({
           if (won) {
             setTotalWins((prev) => prev + 1);
 
-            //  platform would send winnings back via PLT but i dun have any to send
+            // Platform would send winnings back via PLT token transfer
             console.log(
-              `🎉 Won! Platform would send ${amount * multiplier} CCD back`
+              `🎉 Won! Platform would send ${
+                amount * multiplier
+              } PLT tokens back`
             );
           }
         }, 1200);
@@ -303,7 +311,8 @@ export default function CasinoGame({
         clearInterval(rollInterval);
         setIsRolling(false);
         alert(
-          "⚠️ PLT transferred but registry update failed: " + recordResult.error
+          "⚠️ PLT tokens transferred but registry update failed: " +
+            recordResult.error
         );
       }
     } catch (err) {

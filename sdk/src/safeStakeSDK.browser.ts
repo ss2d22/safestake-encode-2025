@@ -28,6 +28,7 @@ import {
   type AccountSigner,
   Parameter,
   ReturnValue,
+  RejectReasonTag,
 } from "@concordium/web-sdk";
 
 import type {
@@ -42,7 +43,17 @@ import type {
   VerifiablePresentation,
 } from "./types.js";
 import { VerifierClient } from "./VerifierClient.js";
-
+import {
+  Cbor,
+  CborMemo,
+  Token,
+  TokenAmount,
+  TokenHolder,
+  TokenId,
+  TokenTransfer,
+  TokenTransferOperation,
+  createTokenUpdatePayload,
+} from "@concordium/web-sdk/plt";
 /**
  * Browser-compatible SafeStake SDK
  * Use this in React/frontend applications
@@ -714,6 +725,125 @@ export class SafeStakeSDKBrowser {
     }
   }
 
+  /**
+   * Execute a PLT token transfer to the gambling platform
+   * This moves real PLT tokens from user to platform before recording the bet
+   */
+  async executeRealPLTTransfer(
+    request: {
+      userAccount: AccountAddress.Type;
+      platformAccount: AccountAddress.Type;
+      amountCCD: number;
+      tokenId: string;
+      memo?: string;
+    },
+    walletSignAndSend: (
+      accountAddress: string,
+      type: AccountTransactionType,
+      payload: any,
+      parameters?: any
+    ) => Promise<string>
+  ): Promise<{ success: boolean; transactionHash?: string; error?: string }> {
+    try {
+      // Get base58 addresses
+      const accountBase58 = AccountAddress.toBase58(request.userAccount);
+      const platformBase58 = AccountAddress.toBase58(request.platformAccount);
+
+      console.log("💸 Executing PLT token transfer:");
+      console.log("  From:", accountBase58);
+      console.log("  To:", platformBase58);
+      console.log("  Amount:", request.amountCCD);
+      console.log("  Token ID:", request.tokenId);
+
+      // 1. Get token info (decimals, etc)
+      const tokenIdObj = TokenId.fromString(request.tokenId);
+      const token = await Token.fromId(this.client, tokenIdObj);
+
+      // 2. Convert amount using token decimals
+      const amount = TokenAmount.fromDecimal(
+        request.amountCCD,
+        token.info.state.decimals
+      );
+
+      // 3. Create CBOR-encoded transfer operation
+      const transfer: TokenTransfer = {
+        recipient: TokenHolder.fromAccountAddress(
+          request.platformAccount
+        ),
+        amount,
+        memo: request.memo ? CborMemo.fromString(request.memo) : undefined,
+      };
+
+      const transferOperation: TokenTransferOperation = {
+        transfer,
+      };
+
+      // 4. Create payload
+      const payload = createTokenUpdatePayload(tokenIdObj, transferOperation);
+
+      console.log("  Payload created");
+
+      // 5. Send transaction
+      const txHashString = await walletSignAndSend(
+        accountBase58,
+        AccountTransactionType.TokenUpdate,
+        payload
+      );
+
+      console.log("✅ PLT token transfer sent:", txHashString);
+
+      // Convert to TransactionHash for finalization check
+      const txHash = TransactionHash.fromHexString(txHashString);
+
+      console.log("⏳ Waiting for transfer finalization...");
+      const status = await this.client.waitForTransactionFinalization(txHash);
+
+      // Check if transaction failed
+      if (
+        status.summary.type === "accountTransaction" &&
+        status.summary.transactionType === "failed"
+      ) {
+        const rejectReason = (status.summary as any).rejectReason;
+
+        // Check for token-specific errors
+        if (
+          rejectReason?.tag === RejectReasonTag.TokenUpdateTransactionFailed
+        ) {
+          const details = Cbor.decode(rejectReason.contents.details);
+          return {
+            success: false,
+            error: `Token transfer failed: ${JSON.stringify(details)}`,
+          };
+        }
+
+        const rejectReasonStr =
+          typeof rejectReason === "object"
+            ? JSON.stringify(rejectReason, (_, v) =>
+                typeof v === "bigint" ? v.toString() : v
+              )
+            : String(rejectReason);
+
+        return {
+          success: false,
+          error: `Transfer failed: ${rejectReasonStr}`,
+        };
+      }
+
+      console.log("✅ PLT token transfer finalized successfully!");
+
+      return {
+        success: true,
+        transactionHash: txHash.toString(),
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("❌ PLT token transfer failed:", errorMsg);
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  }
   /**
    * Self-exclude from gambling with browser wallet
    */

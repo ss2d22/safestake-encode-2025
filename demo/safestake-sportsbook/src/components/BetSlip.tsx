@@ -134,6 +134,8 @@ export default function BetSlip({
     return () => clearTimeout(debounce);
   }, [sdk, account, stake, isRegistered]);
 
+  const PLT_TOKEN_ID = "your-plt-token-id-here"; 
+
   const handlePlaceBet = async () => {
     if (!sdk || !isRegistered || bets.length === 0 || stake <= 0) return;
 
@@ -150,13 +152,15 @@ export default function BetSlip({
       const platformAccount = SDKAccountAddress.fromBase58(PLATFORM_ACCOUNT);
       const walletSigner = createWalletSigner();
 
-      // 🆕 STEP 1: Transfer PLT to platform (real money!)
-      console.log("💸 Transferring bet amount to platform...");
-      const pltResult = await sdk.executePLTTransfer(
+      // 🆕 STEP 1: Transfer REAL PLT tokens to platform
+      console.log("💸 Transferring PLT tokens to platform...");
+      const pltResult = await sdk.executeRealPLTTransfer(
         {
           userAccount,
           platformAccount,
           amountCCD: stake,
+          tokenId: PLT_TOKEN_ID, // ← NEW: Real PLT token
+          memo: `Sports bet ${Date.now()}`, // ← NEW: Add memo
         },
         walletSigner
       );
@@ -164,12 +168,15 @@ export default function BetSlip({
       if (!pltResult.success) {
         setLastBetResult({
           success: false,
-          message: "PLT transfer failed: " + pltResult.error,
+          message: "PLT token transfer failed: " + pltResult.error,
         });
         return;
       }
 
-      console.log("✅ PLT transferred! TxHash:", pltResult.transactionHash);
+      console.log(
+        "✅ PLT tokens transferred! TxHash:",
+        pltResult.transactionHash
+      );
 
       // 🆕 STEP 2: Record transaction in SafeStake registry
       console.log("📝 Recording bet in SafeStake registry...");
@@ -183,7 +190,7 @@ export default function BetSlip({
 
         setLastBetResult({
           success: true,
-          message: "Bet placed successfully!",
+          message: "Bet placed successfully with PLT tokens!",
           pltHash: pltResult.transactionHash,
           registryHash: recordResult.transactionHash,
         });
@@ -198,7 +205,7 @@ export default function BetSlip({
         setLastBetResult({
           success: false,
           message:
-            "⚠️ PLT transferred but registry update failed: " +
+            "⚠️ PLT tokens transferred but registry update failed: " +
             recordResult.error,
           pltHash: pltResult.transactionHash,
         });
