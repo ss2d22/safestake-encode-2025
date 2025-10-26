@@ -14,6 +14,17 @@ SafeStake enables gambling operators to verify user age and compliance requireme
 - Protocol-Level Token (PLT) support for real money gambling
 - Easy-to-integrate operator SDK
 
+### Live testnet demos 
+
+- https://safestake-sportsbook.netlify.app/
+- https://safestake-casino.netlify.app/
+- https://safestake-dashboard.netlify.app/
+- stuff like transaction history is just simulated on the websites , betting ,setting limits, self exclusion and all that works and is enforces cross platform 
+
+contract module on testet :
+- https://testnet.ccdscan.io/nodes?dcount=1&dentity=module&dmoduleReference=58013adf8f775a51652096910919eb5980ea3bea25d9a612aad724baa95a7c41
+
+
 ## Architecture
 
 SafeStake consists of four main components working together:
