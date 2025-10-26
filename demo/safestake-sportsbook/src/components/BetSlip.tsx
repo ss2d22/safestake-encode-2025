@@ -134,7 +134,7 @@ export default function BetSlip({
     return () => clearTimeout(debounce);
   }, [sdk, account, stake, isRegistered]);
 
-  const PLT_TOKEN_ID = "your-plt-token-id-here";
+  const PLT_TOKEN_ID = "USDC";
 
   const handlePlaceBet = async () => {
     if (!sdk || !isRegistered || bets.length === 0 || stake <= 0) return;

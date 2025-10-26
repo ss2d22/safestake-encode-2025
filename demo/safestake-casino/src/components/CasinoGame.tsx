@@ -255,7 +255,7 @@ export default function CasinoGame({
           userAccount,
           platformAccount: PLATFORM_ACCOUNT,
           amountCCD: amount,
-          tokenId: PLT_TOKEN_ID, // ← NEW: Real PLT token
+          tokenId: PLT_TOKEN_ID,
           memo: `Dice bet ${Date.now()}`,
         },
         walletSigner
