@@ -16,6 +16,7 @@ SafeStake enables gambling operators to verify user age and compliance requireme
 
 ### Live links
 
+note : live demos use native CCD tranfers on testnet instead of PLTs due to not having a testnet PLT
 #### testnet demos : 
 
 - https://safestake-sportsbook.netlify.app/
