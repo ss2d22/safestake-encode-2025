@@ -629,6 +629,92 @@ export class SafeStakeSDKBrowser {
   }
 
   /**
+   * Execute a PLT transfer to the gambling platform
+   * This moves real tokens from user to platform before recording the bet
+   *
+   */
+  async executePLTTransfer(
+    request: {
+      userAccount: AccountAddress.Type;
+      platformAccount: AccountAddress.Type;
+      amountCCD: number;
+    },
+    walletSignAndSend: (
+      accountAddress: string,
+      type: AccountTransactionType,
+      payload: any,
+      parameters?: any
+    ) => Promise<string>
+  ): Promise<{ success: boolean; transactionHash?: string; error?: string }> {
+    try {
+      const accountBase58 = AccountAddress.toBase58(request.userAccount);
+      const platformBase58 = AccountAddress.toBase58(request.platformAccount);
+
+      const payload = {
+        amount: CcdAmount.fromMicroCcd(
+          BigInt(Math.floor(request.amountCCD * 1_000_000))
+        ),
+        toAddress: AccountAddress.fromBase58(platformBase58),
+      };
+
+      console.log("💸 Executing PLT transfer:");
+      console.log("  From:", accountBase58);
+      console.log("  To:", platformBase58);
+      console.log("  Amount:", request.amountCCD, "CCD");
+      console.log("  Payload:", payload);
+      console.log("");
+
+      // Execute transfer through wallet - returns transaction hash as string
+      const txHashString = await walletSignAndSend(
+        accountBase58,
+        AccountTransactionType.Transfer,
+        payload
+      );
+
+      console.log("✅ PLT transfer sent:", txHashString);
+
+      // Convert to TransactionHash for finalization check
+      const txHash = TransactionHash.fromHexString(txHashString);
+
+      console.log("⏳ Waiting for transfer finalization...");
+      const status = await this.client.waitForTransactionFinalization(txHash);
+
+      // Check if transaction failed
+      if (
+        status.summary.type === "accountTransaction" &&
+        status.summary.transactionType === "failed"
+      ) {
+        const rejectReason = (status.summary as any).rejectReason;
+        const rejectReasonStr =
+          typeof rejectReason === "object"
+            ? JSON.stringify(rejectReason, (_, v) =>
+                typeof v === "bigint" ? v.toString() : v
+              )
+            : String(rejectReason);
+
+        return {
+          success: false,
+          error: `Transfer failed: ${rejectReasonStr}`,
+        };
+      }
+
+      console.log("✅ PLT transfer finalized successfully!");
+
+      return {
+        success: true,
+        transactionHash: txHash.toString(),
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("❌ PLT transfer failed:", errorMsg);
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  }
+
+  /**
    * Self-exclude from gambling with browser wallet
    */
   async selfExcludeWithBrowserWallet(

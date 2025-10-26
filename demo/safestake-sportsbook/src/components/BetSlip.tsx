@@ -29,6 +29,8 @@ import {
 } from "../config";
 import type { Match } from "./MatchDisplay";
 
+const PLATFORM_ACCOUNT = "3AydpLAJiUVjMhxddULZjZNN2XJYEXE2cFezC1iiWcWH1GKxAF";
+
 interface Bet {
   id: string;
   matchId: string;
@@ -61,6 +63,8 @@ export default function BetSlip({
   const [lastBetResult, setLastBetResult] = useState<{
     success: boolean;
     message: string;
+    pltHash?: string;
+    registryHash?: string;
   } | null>(null);
 
   // Initialize SDK
@@ -143,20 +147,45 @@ export default function BetSlip({
       setLastBetResult(null);
 
       const userAccount = SDKAccountAddress.fromBase58(account);
+      const platformAccount = SDKAccountAddress.fromBase58(PLATFORM_ACCOUNT);
       const walletSigner = createWalletSigner();
 
-      const result = await sdk.recordTransactionWithBrowserWallet(
+      // 🆕 STEP 1: Transfer PLT to platform (real money!)
+      console.log("💸 Transferring bet amount to platform...");
+      const pltResult = await sdk.executePLTTransfer(
+        {
+          userAccount,
+          platformAccount,
+          amountCCD: stake,
+        },
+        walletSigner
+      );
+
+      if (!pltResult.success) {
+        setLastBetResult({
+          success: false,
+          message: "PLT transfer failed: " + pltResult.error,
+        });
+        return;
+      }
+
+      console.log("✅ PLT transferred! TxHash:", pltResult.transactionHash);
+
+      // 🆕 STEP 2: Record transaction in SafeStake registry
+      console.log("📝 Recording bet in SafeStake registry...");
+      const recordResult = await sdk.recordTransactionWithBrowserWallet(
         { userAccount, amountCCD: stake },
         walletSigner
       );
 
-      if (result.success) {
+      if (recordResult.success) {
+        console.log("✅ Bet recorded! TxHash:", recordResult.transactionHash);
+
         setLastBetResult({
           success: true,
-          message: `Bet placed! TX: ${result.transactionHash?.substring(
-            0,
-            16
-          )}...`,
+          message: "Bet placed successfully!",
+          pltHash: pltResult.transactionHash,
+          registryHash: recordResult.transactionHash,
         });
 
         // Clear bet slip after successful bet
@@ -164,11 +193,14 @@ export default function BetSlip({
           onClearBets();
           setStakeAmount("10");
           setLastBetResult(null);
-        }, 3000);
+        }, 5000);
       } else {
         setLastBetResult({
           success: false,
-          message: result.error || "Failed to place bet",
+          message:
+            "⚠️ PLT transferred but registry update failed: " +
+            recordResult.error,
+          pltHash: pltResult.transactionHash,
         });
       }
     } catch (err) {
@@ -298,7 +330,22 @@ export default function BetSlip({
                 variant={lastBetResult.success ? "default" : "destructive"}
               >
                 <TrendingUp className="h-4 w-4" />
-                <AlertDescription>{lastBetResult.message}</AlertDescription>
+                <AlertDescription>
+                  <div className="space-y-1">
+                    <p className="font-medium">{lastBetResult.message}</p>
+                    {lastBetResult.pltHash && (
+                      <p className="text-xs">
+                        💸 Transfer: {lastBetResult.pltHash.substring(0, 16)}...
+                      </p>
+                    )}
+                    {lastBetResult.registryHash && (
+                      <p className="text-xs">
+                        📝 Registry:{" "}
+                        {lastBetResult.registryHash.substring(0, 16)}...
+                      </p>
+                    )}
+                  </div>
+                </AlertDescription>
               </Alert>
             )}
 

@@ -238,16 +238,48 @@ export default function CasinoGame({
         }
       }, 100);
 
-      // Record transaction
       setLoading(true);
       const walletSigner = createWalletSigner();
 
-      const result = await sdk.recordTransactionWithBrowserWallet(
+      // 🆕 PLATFORM ACCOUNT
+      const PLATFORM_ACCOUNT = SDKAccountAddress.fromBase58(
+        "3AydpLAJiUVjMhxddULZjZNN2XJYEXE2cFezC1iiWcWH1GKxAF"
+      );
+
+      // 🆕 STEP 1: Transfer PLT to platform (real money!)
+      console.log("💸 Transferring bet amount to platform...");
+      const pltResult = await sdk.executePLTTransfer(
+        {
+          userAccount,
+          platformAccount: PLATFORM_ACCOUNT,
+          amountCCD: amount,
+          memo: `Dice bet ${Date.now()}`,
+        },
+        walletSigner
+      );
+
+      if (!pltResult.success) {
+        clearInterval(rollInterval);
+        setIsRolling(false);
+        alert("❌ PLT transfer failed: " + pltResult.error);
+        return;
+      }
+
+      console.log("✅ PLT transferred! TxHash:", pltResult.transactionHash);
+
+      // 🆕 STEP 2: Record transaction in registry
+      console.log("📝 Recording transaction in SafeStake registry...");
+      const recordResult = await sdk.recordTransactionWithBrowserWallet(
         { userAccount, amountCCD: amount },
         walletSigner
       );
 
-      if (result.success) {
+      if (recordResult.success) {
+        console.log(
+          "✅ Transaction recorded! TxHash:",
+          recordResult.transactionHash
+        );
+
         // Final dice result
         setTimeout(() => {
           const finalRoll = Math.floor(Math.random() * 6) + 1;
@@ -258,21 +290,29 @@ export default function CasinoGame({
           setLastWin(won);
           setTotalBets((prev) => prev + 1);
           setTotalWagered((prev) => prev + amount);
-          if (won) setTotalWins((prev) => prev + 1);
+          if (won) {
+            setTotalWins((prev) => prev + 1);
+
+            //  platform would send winnings back via PLT but i dun have any to send
+            console.log(
+              `🎉 Won! Platform would send ${amount * multiplier} CCD back`
+            );
+          }
         }, 1200);
       } else {
         clearInterval(rollInterval);
         setIsRolling(false);
-        alert("❌ Transaction failed: " + result.error);
+        alert(
+          "⚠️ PLT transferred but registry update failed: " + recordResult.error
+        );
       }
     } catch (err) {
       setIsRolling(false);
-      alert(err instanceof Error ? err.message : "Roll failed");
+      alert(err instanceof Error ? err.message : "Bet failed");
     } finally {
       setLoading(false);
     }
   };
-
   const handleSelfExclude = async () => {
     if (
       !sdk ||

@@ -1,6 +1,6 @@
 {
   "name": "@safestake/operator-sdk",
-  "version": "0.1.0",
+  "version": "0.1.7",
   "description": "SDK for integrating SafeStake responsible gambling protocol",
   "type": "module",
   "main": "./dist/index.js",
